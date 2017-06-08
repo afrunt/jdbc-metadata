@@ -21,6 +21,7 @@ package com.afrunt.jdbcmetadata.test;
 import com.afrunt.jdbcmetadata.*;
 import org.junit.Test;
 
+import java.sql.DatabaseMetaData;
 import java.util.Arrays;
 import java.util.List;
 
@@ -104,6 +105,8 @@ public class EmployeeTableMetaDataTest extends BaseTest {
         assertEquals(Integer.valueOf(1), lastName.getOrdinalPosition());
 
         assertEquals("NAME_IDX[LAST_NAME,FIRST_NAME]", nameIndex.toString());
+
+        assertEquals(Integer.valueOf(DatabaseMetaData.tableIndexOther), nameIndex.getType());
 
     }
 
