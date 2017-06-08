@@ -183,6 +183,20 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
         return this;
     }
 
+    public List<IndexMetaData> getIndexes() {
+        return indexes;
+    }
+
+    public ColumnMetaData setIndexes(List<IndexMetaData> indexes) {
+        this.indexes = indexes;
+        return this;
+    }
+
+    @Override
+    public String toString() {
+        return getTableName() + "->" + getName();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -217,19 +231,5 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
         result = 31 * result + (primaryKey ? 1 : 0);
         result = 31 * result + (foreignKeyMetaData != null ? foreignKeyMetaData.hashCode() : 0);
         return result;
-    }
-
-    public List<IndexMetaData> getIndexes() {
-        return indexes;
-    }
-
-    public ColumnMetaData setIndexes(List<IndexMetaData> indexes) {
-        this.indexes = indexes;
-        return this;
-    }
-
-    @Override
-    public String toString() {
-        return getTableName() + "->" + getName();
     }
 }
