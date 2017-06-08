@@ -94,6 +94,7 @@ public class EmployeeTableMetaDataTest extends BaseTest {
         IndexColumnMetadata lastName = nameIndex.indexColumn("LAST_NAME");
         assertTrue(lastName.isAscending());
 
+        assertEquals("NAME_IDX[LAST_NAME,FIRST_NAME]", nameIndex.toString());
     }
 
     private void testPrimaryKeys(TableMetaData table) {

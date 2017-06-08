@@ -30,6 +30,8 @@ public class DatabaseMetaDataTest extends BaseTest {
         assertTrue(md.hasSchema("PUBLIC"));
         assertTrue(md.hasSchema("INFORMATION_SCHEMA"));
 
+        assertEquals("INFORMATION_SCHEMA[0]", md.schema("INFORMATION_SCHEMA").toString());
+
         assertTrue(md.schema("PUBLIC").isDefaultSchema());
     }
 

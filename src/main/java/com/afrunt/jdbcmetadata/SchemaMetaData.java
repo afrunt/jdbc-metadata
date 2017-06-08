@@ -45,7 +45,9 @@ public class SchemaMetaData implements WithName {
     }
 
     public TableMetaData table(String name) {
-        return filterTables(t -> t.nameIs(name)).stream().findAny().orElse(null);
+        return filterTables(t -> t.nameIs(name)).stream()
+                .findAny()
+                .orElse(null);
     }
 
     public boolean hasTable(String name) {
@@ -57,15 +59,6 @@ public class SchemaMetaData implements WithName {
         return tables().stream()
                 .filter(fn)
                 .collect(Collectors.toList());
-    }
-
-    public SchemaMetaData addTable(TableMetaData table) {
-        List<TableMetaData> tablesMetaData = new ArrayList<>(tables);
-        tablesMetaData.add(table);
-
-        setTables(tablesMetaData);
-
-        return this;
     }
 
     public SchemaMetaData setName(String name) {
@@ -89,5 +82,14 @@ public class SchemaMetaData implements WithName {
     public SchemaMetaData setDefaultSchema(boolean defaultSchema) {
         this.defaultSchema = defaultSchema;
         return this;
+    }
+
+    public int tableCount() {
+        return tables().size();
+    }
+
+    @Override
+    public String toString() {
+        return getName() + "[" + tableCount() + "]";
     }
 }

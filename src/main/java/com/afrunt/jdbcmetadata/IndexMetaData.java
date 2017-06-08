@@ -118,4 +118,9 @@ public class IndexMetaData implements WithName {
     public IndexColumnMetadata indexColumn(String name) {
         return indexColumns().stream().filter(ic -> ic.nameIs(name)).findFirst().orElse(null);
     }
+
+    @Override
+    public String toString() {
+        return getName() + "[" + String.join(",", columnNames()) + "]";
+    }
 }
