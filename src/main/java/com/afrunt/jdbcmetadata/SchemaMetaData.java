@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 public class SchemaMetaData implements WithName {
     private String name;
     private List<TableMetaData> tables = new ArrayList<>();
+    private boolean defaultSchema;
 
     @Override
     public String getName() {
@@ -78,6 +79,15 @@ public class SchemaMetaData implements WithName {
 
     public SchemaMetaData setTables(List<TableMetaData> tables) {
         this.tables = tables;
+        return this;
+    }
+
+    public boolean isDefaultSchema() {
+        return defaultSchema;
+    }
+
+    public SchemaMetaData setDefaultSchema(boolean defaultSchema) {
+        this.defaultSchema = defaultSchema;
         return this;
     }
 }

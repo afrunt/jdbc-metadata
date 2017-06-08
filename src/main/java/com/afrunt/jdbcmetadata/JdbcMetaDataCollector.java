@@ -20,6 +20,7 @@ package com.afrunt.jdbcmetadata;
 
 import java.sql.*;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.util.Optional.ofNullable;
@@ -33,10 +34,23 @@ public class JdbcMetaDataCollector {
     private Map<String, TableMetaData> tablesMetaDataCache = new WeakHashMap<>();
     private Map<String, SchemaMetaData> schemaMetaDataCache = new WeakHashMap<>();
 
+    public JdbcDatabaseMetaData collectDatabaseMetaData() {
+        return collectDatabaseMetaData(s -> true);
+    }
 
-    public JdbcMetaDataCollector setConnection(Connection connection) {
-        this.connection = connection;
-        return this;
+    public JdbcDatabaseMetaData collectDatabaseMetaData(Predicate<String> schemaFilter) {
+        JdbcDatabaseMetaData databaseMetaData = new JdbcDatabaseMetaData();
+        List<SchemaMetaData> schemas = findAllSchemaNames().stream()
+                .filter(schemaFilter)
+                .parallel()
+                .map(this::collectSchemaMetaData)
+                .collect(Collectors.toList());
+
+
+        return populateExtraDatabaseData(databaseMetaData)
+                .setSchemas(schemas)
+                ;
+
     }
 
     public SchemaMetaData collectSchemaMetaData(String schema) {
@@ -51,7 +65,8 @@ public class JdbcMetaDataCollector {
             } else {
                 SchemaMetaData schemaMetaData = new SchemaMetaData()
                         .setName(schema)
-                        .setTables(collectTablesMetaDataForSchema(schema));
+                        .setTables(collectTablesMetaDataForSchema(schema))
+                        .setDefaultSchema(isDefaultSchema(schema));
                 schemaMetaDataCache.put(schema, schemaMetaData);
                 return schemaMetaData;
             }
@@ -243,6 +258,10 @@ public class JdbcMetaDataCollector {
         }
     }
 
+    private boolean isDefaultSchema(String schema) {
+        return findDefaultSchemaName().equals(schema);
+    }
+
     private String findDefaultSchemaName() {
         try {
             ResultSet rs = getDatabaseMetaData().getSchemas();
@@ -267,6 +286,7 @@ public class JdbcMetaDataCollector {
 
     private List<TableMetaData> collectTablesMetaDataForSchema(String schema) {
         return findTableNamesForSchema(schema).stream()
+                .parallel()
                 .map(tn -> collectTableMetaData(tn, schema))
                 .collect(Collectors.toList());
     }
@@ -294,7 +314,38 @@ public class JdbcMetaDataCollector {
         }
     }
 
+    private List<String> findAllSchemaNames() {
+        try {
+            ResultSet rs = getDatabaseMetaData().getSchemas();
+            //JdbcUtil.printResultSet(rs);
+
+            List<String> schemaNames = new ArrayList<>();
+            while (rs.next()) {
+                schemaNames.add(rs.getString("SCHEMA_NAME"));
+            }
+            return schemaNames;
+        } catch (SQLException e) {
+            throw new JdbcMetaDataException("Error getting all schema names", e);
+        }
+    }
+
     private Connection getConnection() {
         return connection;
+    }
+
+    private JdbcDatabaseMetaData populateExtraDatabaseData(JdbcDatabaseMetaData jdbcDatabaseMetaData) {
+        try {
+            DatabaseMetaData md = getDatabaseMetaData();
+            return jdbcDatabaseMetaData
+                    .setDatabaseProductName(md.getDatabaseProductName())
+                    ;
+        } catch (SQLException e) {
+            throw new JdbcMetaDataException("Error populating extra database data", e);
+        }
+    }
+
+    public JdbcMetaDataCollector setConnection(Connection connection) {
+        this.connection = connection;
+        return this;
     }
 }
