@@ -4,6 +4,8 @@ package com.afrunt.jdbcmetadata;
  * @author Andrii Frunt
  */
 public class IndexColumnMetadata implements WithName, Comparable<IndexColumnMetadata> {
+    public static final int SORT_TYPE_ASC = 0;
+    public static final int SORT_TYPE_DESC = 1;
     private String name;
     private Boolean ascending;
     private Integer ordinalPosition;

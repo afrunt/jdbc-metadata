@@ -22,8 +22,8 @@ package com.afrunt.jdbcmetadata;
  * @author Andrii Frunt
  */
 public class JdbcMetaDataException extends RuntimeException {
-    public JdbcMetaDataException() {
-    }
+/*    public JdbcMetaDataException() {
+    }*/
 
     public JdbcMetaDataException(String message) {
         super(message);
@@ -33,7 +33,7 @@ public class JdbcMetaDataException extends RuntimeException {
         super(message, cause);
     }
 
-    public JdbcMetaDataException(Throwable cause) {
+/*    public JdbcMetaDataException(Throwable cause) {
         super(cause);
-    }
+    }*/
 }

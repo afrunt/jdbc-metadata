@@ -205,7 +205,7 @@ public class ForeignKeyMetaData implements WithName {
         return this;
     }
 
-    @Override
+/*    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
@@ -234,5 +234,5 @@ public class ForeignKeyMetaData implements WithName {
         result = 31 * result + (updateRule != null ? updateRule.hashCode() : 0);
         result = 31 * result + (deleteRule != null ? deleteRule.hashCode() : 0);
         return result;
-    }
+    }*/
 }

@@ -78,6 +78,9 @@ public class EmployeeTableMetaDataTest extends BaseTest {
 
         IndexMetaData nameIndex = table.index("NAME_IDX");
 
+        assertEquals(Integer.valueOf(0), nameIndex.getCardinality());
+        assertEquals(Integer.valueOf(0), nameIndex.getPages());
+
         List<IndexMetaData> indexesForFirstName = table.columnIndexes("FIRST_NAME");
 
         assertFalse(indexesForFirstName.isEmpty());
@@ -91,10 +94,17 @@ public class EmployeeTableMetaDataTest extends BaseTest {
 
         IndexColumnMetadata firstName = nameIndex.indexColumn("FIRST_NAME");
         assertFalse(firstName.isAscending());
+
+        assertEquals(Integer.valueOf(IndexColumnMetadata.SORT_TYPE_DESC), firstName.getSortType());
+        assertEquals(Integer.valueOf(2), firstName.getOrdinalPosition());
+
         IndexColumnMetadata lastName = nameIndex.indexColumn("LAST_NAME");
         assertTrue(lastName.isAscending());
+        assertEquals(Integer.valueOf(IndexColumnMetadata.SORT_TYPE_ASC), lastName.getSortType());
+        assertEquals(Integer.valueOf(1), lastName.getOrdinalPosition());
 
         assertEquals("NAME_IDX[LAST_NAME,FIRST_NAME]", nameIndex.toString());
+
     }
 
     private void testPrimaryKeys(TableMetaData table) {
@@ -111,7 +121,9 @@ public class EmployeeTableMetaDataTest extends BaseTest {
         assertEquals(1, primaryKeyColumns.size());
 
         ColumnMetaData employeeId = primaryKey.column("EMPLOYEE_ID");
+
         assertNotNull(employeeId);
+        assertEquals(Long.class, employeeId.getJavaType());
         assertTrue(employeeId.isAssignableFrom(Long.class));
         assertTrue(employeeId.isNumber());
         assertTrue(employeeId.isAutoIncrement());

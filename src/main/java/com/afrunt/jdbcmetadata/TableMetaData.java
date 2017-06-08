@@ -31,7 +31,7 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
     private String schemaName;
     private PrimaryKeyMetaData primaryKey;
     private List<ColumnMetaData> columns = new ArrayList<>();
-    private List<IndexMetaData> indexes;
+    private List<IndexMetaData> indexes = new ArrayList<>();
 
     public String fullName() {
         if (getSchemaName() != null) {

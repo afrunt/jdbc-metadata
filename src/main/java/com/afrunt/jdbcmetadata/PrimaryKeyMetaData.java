@@ -39,7 +39,7 @@ public class PrimaryKeyMetaData implements WithColumns {
         return columns;
     }
 
-    @Override
+   /* @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
@@ -52,5 +52,5 @@ public class PrimaryKeyMetaData implements WithColumns {
     @Override
     public int hashCode() {
         return columns != null ? columns.hashCode() : 0;
-    }
+    }*/
 }
