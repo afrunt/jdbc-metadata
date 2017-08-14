@@ -85,7 +85,15 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
     }
 
     public boolean isForeignFor(TableMetaData other) {
-        return other.foreignTables().contains(this);
+        return other.getForeignKeys().stream()
+                .filter(fk -> fk.getForeignKeyMetaData().getForeignTableName().equals(getName()))
+                .count() > 0;
+    }
+
+    public List<ColumnMetaData> getForeignKeys(){
+        return getColumns().stream()
+                .filter(ColumnMetaData::isForeignKey)
+                .collect(Collectors.toList());
     }
 
     public boolean isRelatedTo(TableMetaData other) {

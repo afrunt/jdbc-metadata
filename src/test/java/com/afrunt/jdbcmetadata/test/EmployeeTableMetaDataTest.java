@@ -145,9 +145,7 @@ public class EmployeeTableMetaDataTest extends BaseTest {
 
         assertEquals(2, foreignKeys.size());
 
-        List<TableMetaData> foreignTables = table.foreignTables();
 
-        assertEquals(2, foreignTables.size());
         ColumnMetaData departmentId = table.column("DEPARTMENT_ID");
         assertTrue(departmentId.isForeignKey());
 
@@ -161,7 +159,6 @@ public class EmployeeTableMetaDataTest extends BaseTest {
 
         TableMetaData departmentTable = getMetaDataCollector().collectTableMetaData("DEPARTMENT", "TEST");
 
-        assertTrue(departmentTable == foreignKey.getForeignTable());
 
         assertTrue(foreignKey.onDeleteRestrict());
         assertFalse(foreignKey.onDeleteCascade());

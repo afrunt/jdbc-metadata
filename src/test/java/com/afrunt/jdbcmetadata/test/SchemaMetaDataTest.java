@@ -35,7 +35,6 @@ public class SchemaMetaDataTest extends BaseTest {
     public void testPublicSchema() {
         JdbcMetaDataCollector metaDataCollector = getMetaDataCollector();
         Assert.assertNotNull(metaDataCollector.collectSchemaMetaData("PUBLIC"));
-        Assert.assertNotNull(metaDataCollector.collectSchemaMetaData(null));
         Assert.assertNotNull(metaDataCollector.collectSchemaMetaData(""));
         Assert.assertNotNull(metaDataCollector.collectSchemaMetaData("TEST"));
 

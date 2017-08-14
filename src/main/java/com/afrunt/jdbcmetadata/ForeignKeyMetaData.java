@@ -26,7 +26,6 @@ import java.util.Optional;
  */
 public class ForeignKeyMetaData implements WithName {
     private String name;
-    private TableMetaData foreignTable;
     private String foreignTableSchema;
     private String foreignTableName;
     private String foreignColumnName;
@@ -187,14 +186,6 @@ public class ForeignKeyMetaData implements WithName {
         return Optional.ofNullable(getForeignTableSchema()).map(s -> s + "." + getForeignTableName()).orElse(getForeignTableName()) + "->" + foreignColumnName;
     }
 
-    public TableMetaData getForeignTable() {
-        return foreignTable;
-    }
-
-    public ForeignKeyMetaData setForeignTable(TableMetaData foreignTable) {
-        this.foreignTable = foreignTable;
-        return this;
-    }
 
     public String getForeignTableSchema() {
         return foreignTableSchema;

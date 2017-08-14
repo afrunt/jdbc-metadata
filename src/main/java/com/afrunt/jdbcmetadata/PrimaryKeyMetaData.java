@@ -27,6 +27,9 @@ import java.util.List;
 public class PrimaryKeyMetaData implements WithColumns {
     private List<ColumnMetaData> columns = new ArrayList<>();
 
+    public PrimaryKeyMetaData() {
+    }
+
     public PrimaryKeyMetaData(List<ColumnMetaData> columns) {
         this.columns = columns;
     }
@@ -39,7 +42,12 @@ public class PrimaryKeyMetaData implements WithColumns {
         return columns;
     }
 
-   /* @Override
+    public PrimaryKeyMetaData setColumns(List<ColumnMetaData> columns) {
+        this.columns = columns;
+        return this;
+    }
+
+    /* @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;

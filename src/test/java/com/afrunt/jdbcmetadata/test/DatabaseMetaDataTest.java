@@ -32,7 +32,6 @@ public class DatabaseMetaDataTest extends BaseTest {
 
         assertEquals("INFORMATION_SCHEMA[0]", md.schema("INFORMATION_SCHEMA").toString());
 
-        assertTrue(md.schema("PUBLIC").isDefaultSchema());
     }
 
     private void testExtraData(JdbcDatabaseMetaData md) {

@@ -67,11 +67,6 @@ public interface WithColumns {
                 .collect(Collectors.toList());
     }
 
-    default List<TableMetaData> foreignTables() {
-        return foreignKeys().stream()
-                .map(c -> c.getForeignKeyMetaData().getForeignTable())
-                .collect(Collectors.toList());
-    }
 
     default List<String> foreignTablesNames() {
         return foreignKeys().stream()
