@@ -300,7 +300,7 @@ public class JdbcMetaDataCollector {
 
             List<String> schemaNames = new ArrayList<>();
             while (rs.next()) {
-                schemaNames.add(rs.getString("SCHEMA_NAME"));
+                schemaNames.add(rs.getString(1));
             }
             return schemaNames;
         } catch (SQLException e) {
