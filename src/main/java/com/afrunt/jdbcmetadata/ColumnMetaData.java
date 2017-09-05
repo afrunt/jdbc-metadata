@@ -147,6 +147,10 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
         return sqlTypeIs(Types.NCLOB);
     }
 
+    public boolean isVARCHAR() {
+        return sqlTypeIs(Types.VARCHAR) || sqlTypeIs(Types.NVARCHAR) || sqlTypeIs(Types.LONGVARCHAR) || sqlTypeIs(Types.LONGNVARCHAR);
+    }
+
     public boolean isAutoIncrement() {
         return autoIncrement;
     }
