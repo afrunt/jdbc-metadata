@@ -45,6 +45,8 @@ public class EmployeeSkillTest extends BaseTest {
         assertTrue(table.columnsExcept(primaryKey.columns()).isEmpty());
 
         ColumnMetaData employeeId = table.column("EMPLOYEE_ID");
+
+        assertTrue(table.partOfCompositeKey(employeeId));
         assertTrue(employeeId.sqlTypeIs(Types.BIGINT));
         assertTrue(employeeId.precisionIs(19));
         assertTrue(employeeId.scaleIs(0));

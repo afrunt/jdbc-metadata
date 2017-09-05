@@ -73,7 +73,7 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
         columns.add(cm);
         return this;
     }
-
+    
 
     public String getSchemaName() {
         return schemaName;
@@ -135,6 +135,10 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
         return indexes().stream()
                 .filter(i -> i.isForColumn(columnName))
                 .collect(Collectors.toList());
+    }
+
+    public boolean partOfCompositeKey(ColumnMetaData cm) {
+        return hasCompositePrimaryKey() && getPrimaryKey().getColumns().contains(cm);
     }
 
     @Override
