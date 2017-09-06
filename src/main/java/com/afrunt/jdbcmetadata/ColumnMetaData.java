@@ -70,6 +70,10 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
     public boolean isTimestamp() {
         return sqlTypeIn(TIMESTAMP, TIME_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE);
     }
+    
+    public boolean isTemporal(){
+        return isDate() || isTimestamp();
+    }
 
     public String getName() {
         return name;
