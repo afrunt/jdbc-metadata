@@ -21,6 +21,8 @@ package com.afrunt.jdbcmetadata;
 import java.sql.Types;
 import java.util.List;
 
+import static java.sql.Types.*;
+
 /**
  * @author Andrii Frunt
  */
@@ -48,6 +50,25 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
 
     public boolean sqlTypeIs(int sqlType) {
         return getSqlType() == sqlType;
+    }
+
+    public boolean sqlTypeIn(int... sqlTypes) {
+        boolean in = false;
+        for (int type : sqlTypes) {
+            in = in || sqlTypeIs(type);
+        }
+        return in;
+    }
+
+    @Override
+    public boolean isDate() {
+        return sqlTypeIn(DATE);
+    }
+
+
+    @Override
+    public boolean isTimestamp() {
+        return sqlTypeIn(TIMESTAMP, TIME_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE);
     }
 
     public String getName() {
@@ -148,7 +169,7 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
     }
 
     public boolean isVARCHAR() {
-        return sqlTypeIs(Types.VARCHAR) || sqlTypeIs(Types.NVARCHAR) || sqlTypeIs(Types.LONGVARCHAR) || sqlTypeIs(Types.LONGNVARCHAR);
+        return sqlTypeIn(VARCHAR, NVARCHAR, LONGVARCHAR, LONGNVARCHAR);
     }
 
     public boolean isAutoIncrement() {
