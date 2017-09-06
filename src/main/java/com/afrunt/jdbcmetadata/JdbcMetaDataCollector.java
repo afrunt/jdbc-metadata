@@ -54,7 +54,7 @@ public class JdbcMetaDataCollector {
         JdbcDatabaseMetaData databaseMetaData = new JdbcDatabaseMetaData();
         List<SchemaMetaData> schemas = findAllSchemaNames().stream()
                 .filter(schemaFilter)
-                .parallel()
+                //.parallel()
                 .map(this::collectSchemaMetaData)
                 .collect(Collectors.toList());
 
@@ -144,7 +144,13 @@ public class JdbcMetaDataCollector {
 
     private ColumnMetaData createColumnMetadata(ResultSetMetaData rs, int index, List<String> primaryKeys, List<IndexMetaData> indexes) throws SQLException, ClassNotFoundException {
         String columnClassName = rs.getColumnClassName(index);
-        Class<?> clazz = Class.forName(columnClassName);
+        Class<?> clazz = null;
+        try {
+            clazz = Class.forName(columnClassName);
+        } catch (Exception e) {
+            LOG.error("Error getting class for name {}", columnClassName);
+        }
+        
         String columnName = rs.getColumnName(index);
         List<IndexMetaData> columnIndexes = indexes.stream().filter(i -> i.columnNames().contains(columnName)).collect(Collectors.toList());
 
@@ -153,9 +159,9 @@ public class JdbcMetaDataCollector {
                 .setSqlType(rs.getColumnType(index))
                 .setSqlTypeName(rs.getColumnTypeName(index))
                 .setPrecision(rs.getPrecision(index))
+                .setJavaType(clazz)
                 .setScale(rs.getScale(index))
                 .setTableName(rs.getTableName(index))
-                .setJavaType(clazz)
                 .setAutoIncrement(rs.isAutoIncrement(index))
                 .setNullable(rs.isNullable(index) == ResultSetMetaData.columnNullable)
                 .setPrimaryKey(primaryKeys.contains(columnName))
@@ -265,7 +271,7 @@ public class JdbcMetaDataCollector {
     private List<TableMetaData> collectTablesMetaDataForSchema(String schema) {
         return findTableNamesForSchema(schema).stream()
                 .filter(tn -> !skipTables.apply(schema, tn))
-                .parallel()
+                //.parallel()
                 .map(tn -> collectTableMetaData(tn, schema))
                 .collect(Collectors.toList());
     }
