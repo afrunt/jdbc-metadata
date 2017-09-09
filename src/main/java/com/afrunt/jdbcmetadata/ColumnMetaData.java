@@ -36,6 +36,8 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
 
     private boolean nullable;
     private boolean autoIncrement;
+    private boolean readOnly;
+    private boolean isWritable;
 
     private int scale;
     private int precision;
@@ -70,8 +72,8 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
     public boolean isTimestamp() {
         return sqlTypeIn(TIMESTAMP, TIME_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE);
     }
-    
-    public boolean isTemporal(){
+
+    public boolean isTemporal() {
         return isDate() || isTimestamp();
     }
 
@@ -260,5 +262,23 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
         result = 31 * result + (primaryKey ? 1 : 0);
         result = 31 * result + (foreignKeyMetaData != null ? foreignKeyMetaData.hashCode() : 0);
         return result;
+    }
+
+    public boolean isReadOnly() {
+        return readOnly;
+    }
+
+    public ColumnMetaData setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
+        return this;
+    }
+
+    public boolean isWritable() {
+        return isWritable;
+    }
+
+    public ColumnMetaData setWritable(boolean writable) {
+        isWritable = writable;
+        return this;
     }
 }

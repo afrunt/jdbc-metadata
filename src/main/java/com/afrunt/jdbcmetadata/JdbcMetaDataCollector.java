@@ -157,6 +157,8 @@ public class JdbcMetaDataCollector {
         return new ColumnMetaData()
                 .setName(columnName)
                 .setSqlType(rs.getColumnType(index))
+                .setReadOnly(rs.isReadOnly(index))
+                .setWritable(rs.isWritable(index))
                 .setSqlTypeName(rs.getColumnTypeName(index))
                 .setPrecision(rs.getPrecision(index))
                 .setJavaType(clazz)
