@@ -44,7 +44,6 @@ public class JdbcMetaDataCollector {
     private Map<String, SchemaMetaData> schemaMetaDataCache = new ConcurrentHashMap<>();
     private BiFunction<String, String, Boolean> skipTables = (s, t) -> false;
     private boolean skipIndexes = false;
-    private String defaultSchemaName;
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
@@ -91,7 +90,7 @@ public class JdbcMetaDataCollector {
     }
 
     public TableMetaData collectTableMetaData(String tableName, String schema) {
-
+        StopWatch sw = new StopWatch().start();
         String fullTableName = tableName;
         if (schema != null && !"".equals(schema.trim())) {
             fullTableName = schema + "." + tableName;
@@ -135,6 +134,8 @@ public class JdbcMetaDataCollector {
                 tableMetaData.setPrimaryKey(primaryKey);
             }
             tablesMetaDataCache.put(fullTableName, tableMetaData);
+
+            LOG.debug("Table {} metadata collected in {}ms", tableName, sw.stop().getTotalTimeMillis());
             return tableMetaData;
 
         } catch (SQLException | ClassNotFoundException e) {
@@ -143,6 +144,7 @@ public class JdbcMetaDataCollector {
     }
 
     private ColumnMetaData createColumnMetadata(ResultSetMetaData rs, int index, List<String> primaryKeys, List<IndexMetaData> indexes) throws SQLException, ClassNotFoundException {
+        StopWatch sw = new StopWatch().start();
         String columnClassName = rs.getColumnClassName(index);
         Class<?> clazz = null;
         try {
@@ -150,11 +152,11 @@ public class JdbcMetaDataCollector {
         } catch (Exception e) {
             LOG.error("Error getting class for name {}", columnClassName);
         }
-        
+
         String columnName = rs.getColumnName(index);
         List<IndexMetaData> columnIndexes = indexes.stream().filter(i -> i.columnNames().contains(columnName)).collect(Collectors.toList());
 
-        return new ColumnMetaData()
+        ColumnMetaData columnMetaData = new ColumnMetaData()
                 .setName(columnName)
                 .setSqlType(rs.getColumnType(index))
                 .setReadOnly(rs.isReadOnly(index))
@@ -168,6 +170,10 @@ public class JdbcMetaDataCollector {
                 .setNullable(rs.isNullable(index) == ResultSetMetaData.columnNullable)
                 .setPrimaryKey(primaryKeys.contains(columnName))
                 .setIndexes(columnIndexes);
+
+        LOG.debug("Column {} metadata created in {}ms", columnName, sw.stop().getTotalTimeMillis());
+
+        return columnMetaData;
     }
 
     private List<IndexMetaData> findIndexes(String tableName, String schema) {
@@ -211,6 +217,7 @@ public class JdbcMetaDataCollector {
     }
 
     private List<String> findPrimaryKeys(String tableName, String schema) {
+        StopWatch sw = new StopWatch().start();
         try {
             ResultSet rs = getDatabaseMetaData().getPrimaryKeys(null, schema, tableName.toUpperCase());
             List<String> fks = new ArrayList<>();
@@ -218,7 +225,7 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 fks.add(rs.getString(4));
             }
-
+            LOG.debug("Primary keys for table {} found. Took {}ms", tableName, sw.stop().getTotalTimeMillis());
             return fks;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting primary keys for " + tableName, e);
@@ -226,6 +233,7 @@ public class JdbcMetaDataCollector {
     }
 
     private Map<String, ForeignKeyMetaData> findForeignKeys(String tableName, String schema) {
+        StopWatch sw = new StopWatch().start();
         try {
             ResultSet rs = databaseMetaData.getImportedKeys(null, schema, tableName.toUpperCase());
             Map<String, ForeignKeyMetaData> map = new HashMap<>();
@@ -246,6 +254,8 @@ public class JdbcMetaDataCollector {
 
                 map.put(rs.getString("FKCOLUMN_NAME"), fk);
             }
+            LOG.debug("Foreign keys for table {} found. Took {}ms", tableName, sw.stop().getTotalTimeMillis());
+
             return map;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting foreign keys for " + tableName, e);
@@ -253,6 +263,7 @@ public class JdbcMetaDataCollector {
     }
 
     private boolean schemaExists(String schema) {
+        StopWatch sw = new StopWatch().start();
         try {
             DatabaseMetaData databaseMetaData = getDatabaseMetaData();
             schema = schema.toUpperCase();
@@ -263,7 +274,7 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 exists = true;
             }
-
+            LOG.debug("Schema existence check took {}ms", sw.stop().getTotalTimeMillis());
             return exists;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error checking the existence of schema " + schema, e);
@@ -279,6 +290,7 @@ public class JdbcMetaDataCollector {
     }
 
     private List<String> findTableNamesForSchema(String schema) {
+        StopWatch sw = new StopWatch().start();
         try {
             DatabaseMetaData databaseMetaData = getDatabaseMetaData();
             ResultSet rs = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
@@ -286,6 +298,7 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 tables.add(rs.getString("TABLE_NAME"));
             }
+            LOG.debug("All table names for schema {} found in {}ms", schema, sw.stop().getTotalTimeMillis());
             return tables;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting table names for schema " + schema, e);
@@ -302,6 +315,7 @@ public class JdbcMetaDataCollector {
     }
 
     private List<String> findAllSchemaNames() {
+        StopWatch sw = new StopWatch().start();
         try {
             ResultSet rs = getDatabaseMetaData().getSchemas();
             //JdbcUtil.printResultSet(rs);
@@ -310,6 +324,7 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 schemaNames.add(rs.getString(1));
             }
+            LOG.debug("All schemas names found in {}ms", sw.stop().getTotalTimeMillis());
             return schemaNames;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting all schema names", e);
