@@ -22,10 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -41,9 +38,12 @@ public class JdbcMetaDataCollector {
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
     private Map<String, TableMetaData> tablesMetaDataCache = new ConcurrentHashMap<>();
-    private Map<String, SchemaMetaData> schemaMetaDataCache = new ConcurrentHashMap<>();
     private BiFunction<String, String, Boolean> skipTables = (s, t) -> false;
     private boolean skipIndexes = false;
+    private Map<String, Set<String>> tableNames = new HashMap<>();
+
+    private Set<String> allSchemaNames = new HashSet<>();
+
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
@@ -67,19 +67,15 @@ public class JdbcMetaDataCollector {
     public SchemaMetaData collectSchemaMetaData(String schema) {
         LOG.debug("Collecting metadata for schema: {}", schema);
 
-        boolean alreadyCached = schemaMetaDataCache.containsKey(schema);
-        if (alreadyCached || schemaExists(schema)) {
+        if (schemaExists(schema)) {
             //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
             //JdbcUtil.printResultSet(tables);
-            if (alreadyCached) {
-                return schemaMetaDataCache.get(schema);
-            } else {
-                SchemaMetaData schemaMetaData = new SchemaMetaData()
-                        .setName(schema)
-                        .setTables(collectTablesMetaDataForSchema(schema));
-                schemaMetaDataCache.put(schema, schemaMetaData);
-                return schemaMetaData;
-            }
+
+            SchemaMetaData schemaMetaData = new SchemaMetaData()
+                    .setName(schema)
+                    .setTables(collectTablesMetaDataForSchema(schema));
+            return schemaMetaData;
+
         } else {
             throw new JdbcMetaDataException("Schema not found" + schema);
         }
@@ -263,6 +259,9 @@ public class JdbcMetaDataCollector {
     }
 
     private boolean schemaExists(String schema) {
+        if (allSchemaNames != null && allSchemaNames.contains(schema)) {
+            return true;
+        }
         StopWatch sw = new StopWatch().start();
         try {
             DatabaseMetaData databaseMetaData = getDatabaseMetaData();
@@ -273,6 +272,9 @@ public class JdbcMetaDataCollector {
 
             while (rs.next()) {
                 exists = true;
+            }
+            if (exists) {
+                allSchemaNames.add(schema);
             }
             LOG.debug("Schema existence check took {}ms", sw.stop().getTotalTimeMillis());
             return exists;
@@ -291,6 +293,13 @@ public class JdbcMetaDataCollector {
 
     private List<String> findTableNamesForSchema(String schema) {
         StopWatch sw = new StopWatch().start();
+        Set<String> names = tableNames.get(schema);
+
+        if (names != null) {
+            LOG.debug("All table names for schema {} cached {}ms", schema, sw.stop().getTotalTimeMillis());
+            return new ArrayList<>(names);
+        }
+
         try {
             DatabaseMetaData databaseMetaData = getDatabaseMetaData();
             ResultSet rs = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
@@ -299,6 +308,7 @@ public class JdbcMetaDataCollector {
                 tables.add(rs.getString("TABLE_NAME"));
             }
             LOG.debug("All table names for schema {} found in {}ms", schema, sw.stop().getTotalTimeMillis());
+            tableNames.put(schema, new HashSet<>(tables));
             return tables;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting table names for schema " + schema, e);
@@ -316,6 +326,11 @@ public class JdbcMetaDataCollector {
 
     private List<String> findAllSchemaNames() {
         StopWatch sw = new StopWatch().start();
+
+        if (allSchemaNames != null && !allSchemaNames.isEmpty()) {
+            LOG.debug("All schemas names found in cache {}ms", sw.stop().getTotalTimeMillis());
+            return new ArrayList<>(allSchemaNames);
+        }
         try {
             ResultSet rs = getDatabaseMetaData().getSchemas();
             //JdbcUtil.printResultSet(rs);
@@ -324,6 +339,10 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 schemaNames.add(rs.getString(1));
             }
+
+            allSchemaNames = new HashSet<>(allSchemaNames);
+            allSchemaNames.addAll(schemaNames);
+            
             LOG.debug("All schemas names found in {}ms", sw.stop().getTotalTimeMillis());
             return schemaNames;
         } catch (SQLException e) {
