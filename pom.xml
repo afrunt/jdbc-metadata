@@ -22,7 +22,7 @@
 
     <groupId>com.afrunt</groupId>
     <artifactId>jdbc-metadata</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 
     <name>JDBC-Metadata</name>
     <description>Open source library for JDBC metadata collection</description>
