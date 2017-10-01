@@ -29,10 +29,22 @@ import java.util.stream.Collectors;
 public class SchemaMetaData implements WithName {
     private String name;
     private List<TableMetaData> tables = new ArrayList<>();
+    private List<SequenceMetaData> sequences = new ArrayList<>();
 
     @Override
     public String getName() {
         return name;
+    }
+
+    public List<SequenceMetaData> sequences() {
+        if (getSequences() == null) {
+            setSequences(new ArrayList<>());
+        }
+        return getSequences();
+    }
+
+    public SequenceMetaData sequence(String name) {
+        return sequences().stream().filter(s -> s.nameIs(name)).findFirst().orElse(null);
     }
 
     public List<TableMetaData> tables() {
@@ -81,5 +93,14 @@ public class SchemaMetaData implements WithName {
     @Override
     public String toString() {
         return getName() + "[" + tableCount() + "]";
+    }
+
+    public List<SequenceMetaData> getSequences() {
+        return sequences;
+    }
+
+    public SchemaMetaData setSequences(List<SequenceMetaData> sequences) {
+        this.sequences = sequences;
+        return this;
     }
 }

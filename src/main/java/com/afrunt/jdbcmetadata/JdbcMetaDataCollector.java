@@ -43,7 +43,8 @@ public class JdbcMetaDataCollector {
     private Map<String, Set<String>> tableNames = new HashMap<>();
 
     private Set<String> allSchemaNames = new HashSet<>();
-
+    private boolean skipSequences;
+    private DatabaseStrategy databaseStrategy;
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
@@ -53,7 +54,7 @@ public class JdbcMetaDataCollector {
         JdbcDatabaseMetaData databaseMetaData = new JdbcDatabaseMetaData();
         List<SchemaMetaData> schemas = findAllSchemaNames().stream()
                 .filter(schemaFilter)
-                //.parallel()
+                .parallel()
                 .map(this::collectSchemaMetaData)
                 .collect(Collectors.toList());
 
@@ -73,6 +74,7 @@ public class JdbcMetaDataCollector {
 
             SchemaMetaData schemaMetaData = new SchemaMetaData()
                     .setName(schema)
+                    .setSequences(collectSequencesMetaData(schema))
                     .setTables(collectTablesMetaDataForSchema(schema));
             return schemaMetaData;
 
@@ -286,7 +288,7 @@ public class JdbcMetaDataCollector {
     private List<TableMetaData> collectTablesMetaDataForSchema(String schema) {
         return findTableNamesForSchema(schema).stream()
                 .filter(tn -> !skipTables.apply(schema, tn))
-                //.parallel()
+                .parallel()
                 .map(tn -> collectTableMetaData(tn, schema))
                 .collect(Collectors.toList());
     }
@@ -324,6 +326,16 @@ public class JdbcMetaDataCollector {
         }
     }
 
+    public List<SequenceMetaData> collectSequencesMetaData(String schemaName) {
+        if (!skipSequences && databaseStrategy != null) {
+            return databaseStrategy
+                    .setConnection(connection)
+                    .collectSequencesMetaData(schemaName);
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
     private List<String> findAllSchemaNames() {
         StopWatch sw = new StopWatch().start();
 
@@ -342,7 +354,7 @@ public class JdbcMetaDataCollector {
 
             allSchemaNames = new HashSet<>(allSchemaNames);
             allSchemaNames.addAll(schemaNames);
-            
+
             LOG.debug("All schemas names found in {}ms", sw.stop().getTotalTimeMillis());
             return schemaNames;
         } catch (SQLException e) {
@@ -388,6 +400,20 @@ public class JdbcMetaDataCollector {
 
     public JdbcMetaDataCollector setSkipIndexes(boolean skipIndexes) {
         this.skipIndexes = skipIndexes;
+        return this;
+    }
+
+    public JdbcMetaDataCollector setSkipSequences(boolean skipSequences) {
+        this.skipSequences = skipSequences;
+        return this;
+    }
+
+    public DatabaseStrategy getDatabaseStrategy() {
+        return databaseStrategy;
+    }
+
+    public JdbcMetaDataCollector setDatabaseStrategy(DatabaseStrategy databaseStrategy) {
+        this.databaseStrategy = databaseStrategy;
         return this;
     }
 }
