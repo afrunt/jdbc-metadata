@@ -20,6 +20,7 @@ package com.afrunt.jdbcmetadata;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -102,5 +103,11 @@ public class SchemaMetaData implements WithName {
     public SchemaMetaData setSequences(List<SequenceMetaData> sequences) {
         this.sequences = sequences;
         return this;
+    }
+
+    public Set<TableMetaData> getDependentTables(TableMetaData table) {
+        return tables().stream()
+                .filter(tm -> tm.isRelatedTo(table))
+                .collect(Collectors.toSet());
     }
 }

@@ -3,7 +3,7 @@ package com.afrunt.jdbcmetadata;
 /**
  * @author Andrii Frunt
  */
-public class SequenceMetaData implements WithName{
+public class SequenceMetaData implements WithName {
     private String name;
     private String schema;
 

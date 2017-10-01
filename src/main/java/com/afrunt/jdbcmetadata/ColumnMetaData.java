@@ -152,6 +152,12 @@ public class ColumnMetaData implements WithName, WithType, WithIndexes {
         return foreignKeyMetaData != null;
     }
 
+    public boolean isForeignKeyFor(ColumnMetaData other) {
+        return isForeignKey()
+                && getForeignKeyMetaData().getForeignColumnName().equals(other.getName())
+                && getForeignKeyMetaData().getForeignTableName().equals(other.getTableName());
+    }
+
 
     @Override
     public Class<?> getType() {

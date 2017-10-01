@@ -73,7 +73,7 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
         columns.add(cm);
         return this;
     }
-    
+
 
     public String getSchemaName() {
         return schemaName;
@@ -90,7 +90,7 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
                 .count() > 0;
     }
 
-    public List<ColumnMetaData> getForeignKeys(){
+    public List<ColumnMetaData> getForeignKeys() {
         return getColumns().stream()
                 .filter(ColumnMetaData::isForeignKey)
                 .collect(Collectors.toList());
@@ -98,6 +98,38 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
 
     public boolean isRelatedTo(TableMetaData other) {
         return other.isForeignFor(this) || isForeignFor(other);
+    }
+
+    public List<ColumnMetaData> getForeignKeysForTable(String schema, String tableName) {
+        return getForeignKeys().stream()
+                .filter(c ->
+                        tableName.equals(c.getForeignKeyMetaData().getForeignTableName())
+                                && schema.equals(c.getForeignKeyMetaData().getForeignTableSchema())
+                )
+                .collect(Collectors.toList());
+    }
+
+    public List<ColumnMetaData> getForeignKeysForTable(TableMetaData table) {
+        return getForeignKeysForTable(table.getSchemaName(), table.getName());
+    }
+
+    public boolean dependsOn(TableMetaData other) {
+        return getForeignKeysForTable(other).size() > 0;
+    }
+
+
+    public boolean sameName(TableMetaData other) {
+        return fullName().equals(other.fullName());
+    }
+
+    public boolean sameName(String otherName) {
+        return getName().equals(otherName);
+    }
+    
+    public List<String> getRelatedTables() {
+        return getForeignKeys().stream()
+                .map(fk -> fk.getForeignKeyMetaData().getForeignTableName())
+                .collect(Collectors.toList());
     }
 
     @Override
