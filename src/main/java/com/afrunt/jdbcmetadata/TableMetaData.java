@@ -140,6 +140,18 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
         }
     }
 
+    public List<ColumnMetaData> getBlobColumns() {
+        return columns.stream().filter(ColumnMetaData::isBLOB).collect(Collectors.toList());
+    }
+
+    public List<String> columnNames() {
+        return columns().stream().map(ColumnMetaData::getName).collect(Collectors.toList());
+    }
+
+    public boolean hasBlobs() {
+        return columns.stream().filter(ColumnMetaData::isBLOB).count() > 0;
+    }
+
     public boolean hasColumn(String columnName) {
         return columns().stream().map(c -> c.nameIs(columnName)).reduce(false, (b1, b2) -> b1 || b2);
     }
