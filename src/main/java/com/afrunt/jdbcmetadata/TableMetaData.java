@@ -19,6 +19,7 @@
 package com.afrunt.jdbcmetadata;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -125,7 +126,24 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
     public boolean sameName(String otherName) {
         return getName().equals(otherName);
     }
-    
+
+    public boolean hasAllColumns(Collection<String> columnNames) {
+        if (columnNames != null && !columnNames.isEmpty()) {
+            for (String columnName : columnNames) {
+                if (!hasColumn(columnName)) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean hasColumn(String columnName) {
+        return columns().stream().map(c -> c.nameIs(columnName)).reduce(false, (b1, b2) -> b1 || b2);
+    }
+
     public List<String> getRelatedTables() {
         return getForeignKeys().stream()
                 .map(fk -> fk.getForeignKeyMetaData().getForeignTableName())

@@ -121,7 +121,7 @@ public class JdbcMetaDataCollector {
             }
 
             for (int i = 1; i <= rsMetaData.getColumnCount(); i++) {
-                ColumnMetaData columnMetadata = createColumnMetadata(rsMetaData, i, primaryKeys, indexes);
+                ColumnMetaData columnMetadata = createColumnMetadata(tableName, rsMetaData, i, primaryKeys, indexes);
                 tableMetaData.addColumn(columnMetadata);
                 ForeignKeyMetaData foreignKeyMetaData = foreignKeys.get(columnMetadata.getName());
                 columnMetadata.setForeignKeyMetaData(foreignKeyMetaData);
@@ -141,7 +141,7 @@ public class JdbcMetaDataCollector {
         }
     }
 
-    private ColumnMetaData createColumnMetadata(ResultSetMetaData rs, int index, List<String> primaryKeys, List<IndexMetaData> indexes) throws SQLException, ClassNotFoundException {
+    private ColumnMetaData createColumnMetadata(String tableName, ResultSetMetaData rs, int index, List<String> primaryKeys, List<IndexMetaData> indexes) throws SQLException, ClassNotFoundException {
         StopWatch sw = new StopWatch().start();
         String columnClassName = rs.getColumnClassName(index);
         Class<?> clazz = null;
@@ -163,7 +163,7 @@ public class JdbcMetaDataCollector {
                 .setPrecision(rs.getPrecision(index))
                 .setJavaType(clazz)
                 .setScale(rs.getScale(index))
-                .setTableName(rs.getTableName(index))
+                .setTableName(tableName)
                 .setAutoIncrement(rs.isAutoIncrement(index))
                 .setNullable(rs.isNullable(index) == ResultSetMetaData.columnNullable)
                 .setPrimaryKey(primaryKeys.contains(columnName))
