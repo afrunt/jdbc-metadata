@@ -45,37 +45,58 @@ public class JdbcMetaDataCollector {
     private Set<String> allSchemaNames = new HashSet<>();
     private boolean skipSequences;
     private DatabaseStrategy databaseStrategy;
+    private ProgressMonitor progressMonitor;
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
     }
 
     public JdbcDatabaseMetaData collectDatabaseMetaData(Predicate<String> schemaFilter) {
+        StopWatch sw = new StopWatch().start();
         JdbcDatabaseMetaData databaseMetaData = new JdbcDatabaseMetaData();
-        List<SchemaMetaData> schemas = findAllSchemaNames().stream()
+        List<String> allSchemaNames = findAllSchemaNames();
+        List<String> filteredSchemas = allSchemaNames.stream()
+                .filter(schemaFilter)
+                .collect(Collectors.toList());
+
+        if (progressMonitor != null) {
+            progressMonitor.collectionStarted(filteredSchemas);
+        }
+
+        List<SchemaMetaData> schemas = allSchemaNames.stream()
                 .filter(schemaFilter)
                 .parallel()
                 .map(this::collectSchemaMetaData)
                 .collect(Collectors.toList());
 
 
-        return populateExtraDatabaseData(databaseMetaData)
-                .setSchemas(schemas)
-                ;
+        JdbcDatabaseMetaData jdbcDatabaseMetaData = populateExtraDatabaseData(databaseMetaData)
+                .setSchemas(schemas);
 
+        long totalTimeMillis = sw.stop().getTotalTimeMillis();
+        if (progressMonitor != null) {
+            progressMonitor.databaseMetadataCollected(databaseMetaData, totalTimeMillis);
+        }
+        return jdbcDatabaseMetaData;
     }
 
     public SchemaMetaData collectSchemaMetaData(String schema) {
         LOG.debug("Collecting metadata for schema: {}", schema);
 
+        StopWatch sw = new StopWatch().start();
         if (schemaExists(schema)) {
             //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
             //JdbcUtil.printResultSet(tables);
-
+            
             SchemaMetaData schemaMetaData = new SchemaMetaData()
                     .setName(schema)
                     .setSequences(collectSequencesMetaData(schema))
                     .setTables(collectTablesMetaDataForSchema(schema));
+
+            if (progressMonitor != null) {
+                progressMonitor.schemaMetaDataCollected(schemaMetaData, sw.stop().getTotalTimeMillis());
+            }
+
             return schemaMetaData;
 
         } else {
@@ -134,6 +155,9 @@ public class JdbcMetaDataCollector {
             tablesMetaDataCache.put(fullTableName, tableMetaData);
 
             LOG.debug("Table {} metadata collected in {}ms", tableName, sw.stop().getTotalTimeMillis());
+            if (progressMonitor != null) {
+                progressMonitor.tableMetadataCollected(tableMetaData, sw.getTotalTimeMillis());
+            }
             return tableMetaData;
 
         } catch (SQLException | ClassNotFoundException e) {
@@ -414,6 +438,15 @@ public class JdbcMetaDataCollector {
 
     public JdbcMetaDataCollector setDatabaseStrategy(DatabaseStrategy databaseStrategy) {
         this.databaseStrategy = databaseStrategy;
+        return this;
+    }
+
+    public ProgressMonitor getProgressMonitor() {
+        return progressMonitor;
+    }
+
+    public JdbcMetaDataCollector setProgressMonitor(ProgressMonitor progressMonitor) {
+        this.progressMonitor = progressMonitor;
         return this;
     }
 }
