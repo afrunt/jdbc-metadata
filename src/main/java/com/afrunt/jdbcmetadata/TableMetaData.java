@@ -85,7 +85,7 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
         return this;
     }
 
-    public boolean isForeignFor(TableMetaData other) {
+    public boolean hasForeignFor(TableMetaData other) {
         return other.getForeignKeys().stream()
                 .filter(fk -> fk.getForeignKeyMetaData().getForeignTableName().equals(getName()))
                 .count() > 0;
@@ -98,7 +98,7 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
     }
 
     public boolean isRelatedTo(TableMetaData other) {
-        return other.isForeignFor(this) || isForeignFor(other);
+        return other.hasForeignFor(this) || hasForeignFor(other);
     }
 
     public List<ColumnMetaData> getForeignKeysForTable(String schema, String tableName) {

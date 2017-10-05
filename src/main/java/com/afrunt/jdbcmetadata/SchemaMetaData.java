@@ -20,7 +20,6 @@ package com.afrunt.jdbcmetadata;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -105,9 +104,21 @@ public class SchemaMetaData implements WithName {
         return this;
     }
 
-    public Set<TableMetaData> getDependentTables(TableMetaData table) {
+    public List<TableMetaData> getRelatedTables(TableMetaData table) {
         return tables().stream()
                 .filter(tm -> tm.isRelatedTo(table))
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
+    }
+
+    public List<TableMetaData> getChildTables(TableMetaData table) {
+        return tables().stream()
+                .filter(tm -> tm.dependsOn(table))
+                .collect(Collectors.toList());
+    }
+
+    public List<TableMetaData> getParentTables(TableMetaData table) {
+        return tables().stream()
+                .filter(table::dependsOn)
+                .collect(Collectors.toList());
     }
 }

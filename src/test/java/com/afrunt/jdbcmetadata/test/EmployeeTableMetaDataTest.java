@@ -174,7 +174,7 @@ public class EmployeeTableMetaDataTest extends BaseTest {
 
         TableMetaData positionTable = getMetaDataCollector().collectTableMetaData("POSITION");
 
-        assertTrue(positionTable.isForeignFor(table));
+        assertTrue(positionTable.hasForeignFor(table));
         assertTrue(positionTable.isRelatedTo(table));
         assertTrue(table.isRelatedTo(positionTable));
 
