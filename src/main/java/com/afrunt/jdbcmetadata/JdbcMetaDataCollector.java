@@ -87,7 +87,7 @@ public class JdbcMetaDataCollector {
         if (schemaExists(schema)) {
             //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
             //JdbcUtil.printResultSet(tables);
-            
+
             SchemaMetaData schemaMetaData = new SchemaMetaData()
                     .setName(schema)
                     .setSequences(collectSequencesMetaData(schema))

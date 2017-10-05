@@ -21,6 +21,10 @@ public class JdbcDatabaseMetaData {
                 .orElse(null);
     }
 
+    public SchemaMetaData schema(TableMetaData table) {
+        return schema(table.getSchemaName());
+    }
+
     public boolean hasSchema(String schema) {
         return schema(schema) != null;
     }
