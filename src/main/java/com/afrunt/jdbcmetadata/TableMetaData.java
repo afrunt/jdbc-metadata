@@ -200,7 +200,8 @@ public class TableMetaData implements WithName, WithPrimaryKey, WithIndexes {
     }
 
     public boolean partOfCompositeKey(ColumnMetaData cm) {
-        return hasCompositePrimaryKey() && getPrimaryKey().getColumns().contains(cm);
+        return hasCompositePrimaryKey() && getPrimaryKey().getColumns().stream()
+                .filter(c -> c.nameIs(cm.getName()) && nameIs(cm.getTableName())).count() > 0;
     }
 
     @Override
