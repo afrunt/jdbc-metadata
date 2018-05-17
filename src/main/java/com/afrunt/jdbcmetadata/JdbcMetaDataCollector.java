@@ -18,14 +18,14 @@
  */
 package com.afrunt.jdbcmetadata;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static java.util.Optional.ofNullable;
@@ -34,7 +34,7 @@ import static java.util.Optional.ofNullable;
  * @author Andrii Frunt
  */
 public class JdbcMetaDataCollector {
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcMetaDataCollector.class);
+    private static final Logger LOG = Logger.getLogger(JdbcMetaDataCollector.class.getName());
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
     private Map<String, TableMetaData> tablesMetaDataCache = new ConcurrentHashMap<>();
@@ -81,8 +81,7 @@ public class JdbcMetaDataCollector {
     }
 
     public SchemaMetaData collectSchemaMetaData(String schema) {
-        LOG.debug("Collecting metadata for schema: {}", schema);
-
+        info( "Collecting metadata for schema: %s", schema);
         StopWatch sw = new StopWatch().start();
         if (schemaExists(schema)) {
             //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
@@ -119,8 +118,7 @@ public class JdbcMetaDataCollector {
             return tablesMetaDataCache.get(fullTableName);
         }
 
-        LOG.debug("Collecting metadata for table: {}", fullTableName);
-
+        debug("Collecting metadata for table: %s", fullTableName);
         String query = "SELECT * FROM " + fullTableName + " WHERE 1<>1";
 
         try {
@@ -154,7 +152,7 @@ public class JdbcMetaDataCollector {
             }
             tablesMetaDataCache.put(fullTableName, tableMetaData);
 
-            LOG.debug("Table {} metadata collected in {}ms", tableName, sw.stop().getTotalTimeMillis());
+            info("Table %s metadata collected in %dms", tableName, sw.stop().getTotalTimeMillis());
             if (progressMonitor != null) {
                 progressMonitor.tableMetadataCollected(tableMetaData, sw.getTotalTimeMillis());
             }
@@ -172,7 +170,7 @@ public class JdbcMetaDataCollector {
         try {
             clazz = Class.forName(columnClassName);
         } catch (Exception e) {
-            LOG.error("Error getting class for name {}", columnClassName);
+            LOG.log(Level.SEVERE, "Error getting class for name " + columnClassName, e);
         }
 
         String columnName = rs.getColumnName(index);
@@ -193,7 +191,7 @@ public class JdbcMetaDataCollector {
                 .setPrimaryKey(primaryKeys.contains(columnName))
                 .setIndexes(columnIndexes);
 
-        LOG.debug("Column {} metadata created in {}ms", columnName, sw.stop().getTotalTimeMillis());
+        debug("Column %s metadata created in %dms", columnName, sw.stop().getTotalTimeMillis());
 
         return columnMetaData;
     }
@@ -247,7 +245,8 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 fks.add(rs.getString(4));
             }
-            LOG.debug("Primary keys for table {} found. Took {}ms", tableName, sw.stop().getTotalTimeMillis());
+
+            debug("Primary keys for table %s found. Took %dms", tableName, sw.stop().getTotalTimeMillis());
             return fks;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting primary keys for " + tableName, e);
@@ -276,7 +275,8 @@ public class JdbcMetaDataCollector {
 
                 map.put(rs.getString("FKCOLUMN_NAME"), fk);
             }
-            LOG.debug("Foreign keys for table {} found. Took {}ms", tableName, sw.stop().getTotalTimeMillis());
+
+            debug("Foreign keys for table %s found. Took %dms", tableName, sw.stop().getTotalTimeMillis());
 
             return map;
         } catch (SQLException e) {
@@ -302,7 +302,7 @@ public class JdbcMetaDataCollector {
             if (exists) {
                 allSchemaNames.add(schema);
             }
-            LOG.debug("Schema existence check took {}ms", sw.stop().getTotalTimeMillis());
+            debug("Schema existence check took %dms", sw.stop().getTotalTimeMillis());
             return exists;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error checking the existence of schema " + schema, e);
@@ -322,7 +322,7 @@ public class JdbcMetaDataCollector {
         Set<String> names = tableNames.get(schema);
 
         if (names != null) {
-            LOG.debug("All table names for schema {} cached {}ms", schema, sw.stop().getTotalTimeMillis());
+            debug("All table names for schema %s cached %dms", schema, sw.stop().getTotalTimeMillis());
             return new ArrayList<>(names);
         }
 
@@ -333,7 +333,7 @@ public class JdbcMetaDataCollector {
             while (rs.next()) {
                 tables.add(rs.getString("TABLE_NAME"));
             }
-            LOG.debug("All table names for schema {} found in {}ms", schema, sw.stop().getTotalTimeMillis());
+            debug("All table names for schema %s cached %dms", schema, sw.stop().getTotalTimeMillis());
             tableNames.put(schema, new HashSet<>(tables));
             return tables;
         } catch (SQLException e) {
@@ -364,7 +364,7 @@ public class JdbcMetaDataCollector {
         StopWatch sw = new StopWatch().start();
 
         if (allSchemaNames != null && !allSchemaNames.isEmpty()) {
-            LOG.debug("All schemas names found in cache {}ms", sw.stop().getTotalTimeMillis());
+            debug("All schemas names found in cache %dms", sw.stop().getTotalTimeMillis());
             return new ArrayList<>(allSchemaNames);
         }
         try {
@@ -379,7 +379,7 @@ public class JdbcMetaDataCollector {
             allSchemaNames = new HashSet<>(allSchemaNames);
             allSchemaNames.addAll(schemaNames);
 
-            LOG.debug("All schemas names found in {}ms", sw.stop().getTotalTimeMillis());
+            debug("All schemas names found in %dms", sw.stop().getTotalTimeMillis());
             return schemaNames;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting all schema names", e);
@@ -448,5 +448,21 @@ public class JdbcMetaDataCollector {
     public JdbcMetaDataCollector setProgressMonitor(ProgressMonitor progressMonitor) {
         this.progressMonitor = progressMonitor;
         return this;
+    }
+
+    private Object[] array(Object... args) {
+        return args;
+    }
+
+    private void debug(String message, Object... params) {
+        log(Level.FINE, message, params);
+    }
+
+    private void info(String message, Object... params) {
+        log(Level.INFO, message, params);
+    }
+
+    private void log(Level level, String message, Object... params) {
+        LOG.log(level, String.format(message, params));
     }
 }

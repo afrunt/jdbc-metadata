@@ -22,7 +22,7 @@
 
     <groupId>com.afrunt</groupId>
     <artifactId>jdbc-metadata</artifactId>
-    <version>0.1.3.0</version>
+    <version>0.1.5-SNAPSHOT</version>
 
     <name>JDBC-Metadata</name>
     <description>Open source library for JDBC metadata collection</description>
@@ -56,12 +56,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.22</version>
-        </dependency>
-        
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
