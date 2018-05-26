@@ -46,6 +46,7 @@ public class JdbcMetaDataCollector {
     private boolean skipSequences;
     private DatabaseStrategy databaseStrategy;
     private ProgressMonitor progressMonitor;
+    private boolean quoteTableNames;
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
@@ -81,7 +82,7 @@ public class JdbcMetaDataCollector {
     }
 
     public SchemaMetaData collectSchemaMetaData(String schema) {
-        info( "Collecting metadata for schema: %s", schema);
+        info("Collecting metadata for schema: %s", schema);
         StopWatch sw = new StopWatch().start();
         if (schemaExists(schema)) {
             //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
@@ -109,10 +110,7 @@ public class JdbcMetaDataCollector {
 
     public TableMetaData collectTableMetaData(String tableName, String schema) {
         StopWatch sw = new StopWatch().start();
-        String fullTableName = tableName;
-        if (schema != null && !"".equals(schema.trim())) {
-            fullTableName = schema + "." + tableName;
-        }
+        String fullTableName = fullTableName(schema, tableName);
 
         if (tablesMetaDataCache.containsKey(fullTableName)) {
             return tablesMetaDataCache.get(fullTableName);
@@ -161,6 +159,22 @@ public class JdbcMetaDataCollector {
         } catch (SQLException | ClassNotFoundException e) {
             throw new JdbcMetaDataException("Error getting metadata for table " + fullTableName, e);
         }
+    }
+
+    public JdbcMetaDataCollector quoteTableNames(boolean value) {
+        this.quoteTableNames = value;
+        return this;
+    }
+
+    private String fullTableName(String schema, String tableName) {
+        tableName = quoteTableNames ? '"' + tableName + '"' : tableName;
+        if (schema != null && !"".equals(schema.trim())) {
+            schema = schema + ".";
+        } else {
+            schema = "";
+        }
+
+        return schema + tableName;
     }
 
     private ColumnMetaData createColumnMetadata(String tableName, ResultSetMetaData rs, int index, List<String> primaryKeys, List<IndexMetaData> indexes) throws SQLException, ClassNotFoundException {
