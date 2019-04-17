@@ -51,10 +51,4 @@ public class SchemaMetaDataTest extends BaseTest {
         assertNotNull(schema.table("SKILL"));
         assertNotNull(schema.table("EMPLOYEE_SKILL"));
     }
-
-    @Test(expected = JdbcMetaDataException.class)
-    public void testUnknownSchema() {
-        getMetaDataCollector().collectSchemaMetaData("XXX");
-        Assert.fail("Should throw an exception");
-    }
 }

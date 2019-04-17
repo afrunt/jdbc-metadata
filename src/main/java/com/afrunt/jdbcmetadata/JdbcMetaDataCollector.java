@@ -32,15 +32,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static java.util.Optional.ofNullable;
-
 /**
  * @author Andrii Frunt
  */
-public class JdbcMetaDataCollector implements AutoCloseable{
+public class JdbcMetaDataCollector implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(JdbcMetaDataCollector.class.getName());
     private Connection connection;
-    private DatabaseMetaData databaseMetaData;
+    //private DatabaseMetaData databaseMetaData;
     private Map<String, TableMetaData> tablesMetaDataCache = new ConcurrentHashMap<>();
     private BiFunction<String, String, Boolean> skipTables = (s, t) -> false;
     private boolean skipIndexes = false;
@@ -57,6 +55,7 @@ public class JdbcMetaDataCollector implements AutoCloseable{
 
     private ExecutorService internalPool;
     private ExecutorService pool;
+    private int maxColumnNameLength = -1;
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
@@ -64,11 +63,24 @@ public class JdbcMetaDataCollector implements AutoCloseable{
 
     public JdbcDatabaseMetaData collectDatabaseMetaData(Predicate<String> schemaFilter) {
         StopWatch sw = new StopWatch().start();
-        JdbcDatabaseMetaData databaseMetaData = new JdbcDatabaseMetaData();
-        List<String> allSchemaNames = findAllSchemaNames();
-        List<String> filteredSchemas = allSchemaNames.stream()
-                .filter(schemaFilter)
-                .collect(Collectors.toList());
+        JdbcDatabaseMetaData jdbcDatabaseMetaData = new JdbcDatabaseMetaData();
+
+        List<String> filteredSchemas;
+        Connection connection = getConnection();
+
+        try {
+            DatabaseMetaData connectionMetaData = connection.getMetaData();
+            List<String> allSchemaNames = findAllSchemaNames(connectionMetaData);
+            jdbcDatabaseMetaData = populateExtraDatabaseData(jdbcDatabaseMetaData, connectionMetaData);
+            filteredSchemas = allSchemaNames.stream()
+                    .filter(schemaFilter)
+                    .filter(sn -> schemaExists(sn, connectionMetaData))
+                    .collect(Collectors.toList());
+        } catch (SQLException e) {
+            throw new JdbcMetaDataException(e);
+        } finally {
+            releaseConnection(connection);
+        }
 
         if (progressMonitor != null) {
             progressMonitor.collectionStarted(filteredSchemas);
@@ -76,23 +88,21 @@ public class JdbcMetaDataCollector implements AutoCloseable{
 
         List<SchemaMetaData> schemas;
 
+
         try {
-            schemas = getInternalPool().submit(() -> allSchemaNames.parallelStream()
-                    .filter(schemaFilter)
+            schemas = getInternalPool().submit(() -> filteredSchemas.parallelStream()
                     .map(this::collectSchemaMetaData)
-                    .collect(Collectors.toList())
-            ).get();
+                    .collect(Collectors.toList())).get();
         } catch (Exception e) {
             throw new JdbcMetaDataException(e);
         }
 
-
-        JdbcDatabaseMetaData jdbcDatabaseMetaData = populateExtraDatabaseData(databaseMetaData)
+        jdbcDatabaseMetaData
                 .setSchemas(schemas);
 
         long totalTimeMillis = sw.stop().getTotalTimeMillis();
         if (progressMonitor != null) {
-            progressMonitor.databaseMetadataCollected(databaseMetaData, totalTimeMillis);
+            progressMonitor.databaseMetadataCollected(jdbcDatabaseMetaData, totalTimeMillis);
         }
         return jdbcDatabaseMetaData;
     }
@@ -100,24 +110,21 @@ public class JdbcMetaDataCollector implements AutoCloseable{
     public SchemaMetaData collectSchemaMetaData(String schema) {
         info("Collecting metadata for schema: %s", schema);
         StopWatch sw = new StopWatch().start();
-        if (schemaExists(schema)) {
-            //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
-            //JdbcUtil.printResultSet(tables);
+        //ResultSet tables = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
+        //JdbcUtil.printResultSet(tables);
 
-            SchemaMetaData schemaMetaData = new SchemaMetaData()
-                    .setName(schema)
-                    .setSequences(collectSequencesMetaData(schema))
-                    .setTables(collectTablesMetaDataForSchema(schema));
+        SchemaMetaData schemaMetaData = new SchemaMetaData()
+                .setName(schema)
+                .setSequences(collectSequencesMetaData(schema))
+                .setTables(collectTablesMetaDataForSchema(schema));
 
-            if (progressMonitor != null) {
-                progressMonitor.schemaMetaDataCollected(schemaMetaData, sw.stop().getTotalTimeMillis());
-            }
-
-            return schemaMetaData;
-
-        } else {
-            throw new JdbcMetaDataException("Schema not found" + schema);
+        if (progressMonitor != null) {
+            progressMonitor.schemaMetaDataCollected(schemaMetaData, sw.stop().getTotalTimeMillis());
         }
+
+        return schemaMetaData;
+
+
     }
 
     public TableMetaData collectTableMetaData(String tableName) {
@@ -135,18 +142,21 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         debug("Collecting metadata for table: %s", fullTableName);
         String query = "SELECT * FROM " + fullTableName + " WHERE 1<>1";
 
+        Connection connection = getConnection();
         try {
-            Connection conn = getConnection();
             PreparedStatement stmt;
 
             TableMetaData tableMetaData = new TableMetaData()
                     .setName(tableName)
                     .setSchemaName(schema);
-            stmt = conn.prepareStatement(query);
+            stmt = connection.prepareStatement(query);
             ResultSet rs = stmt.executeQuery();
             ResultSetMetaData rsMetaData = rs.getMetaData();
-            List<String> primaryKeys = findPrimaryKeys(tableName, schema);
-            Map<String, ForeignKeyMetaData> foreignKeys = findForeignKeys(tableName, schema);
+
+            DatabaseMetaData databaseMetaData = connection.getMetaData();
+            List<String> primaryKeys = findPrimaryKeys(tableName, schema, databaseMetaData);
+            Map<String, ForeignKeyMetaData> foreignKeys = findForeignKeys(tableName, schema, databaseMetaData);
+
             List<IndexMetaData> indexes = new ArrayList<>();
             if (!skipIndexes) {
                 indexes = findIndexes(tableName, schema);
@@ -174,6 +184,8 @@ public class JdbcMetaDataCollector implements AutoCloseable{
 
         } catch (SQLException | ClassNotFoundException e) {
             throw new JdbcMetaDataException("Error getting metadata for table " + fullTableName, e);
+        } finally {
+            releaseConnection(connection);
         }
     }
 
@@ -227,8 +239,10 @@ public class JdbcMetaDataCollector implements AutoCloseable{
     }
 
     private List<IndexMetaData> findIndexes(String tableName, String schema) {
+        Connection connection = getConnection();
+
         try {
-            DatabaseMetaData databaseMetaData = getDatabaseMetaData();
+            DatabaseMetaData databaseMetaData = connection.getMetaData();
             ResultSet rs = databaseMetaData.getIndexInfo(null, schema, tableName, false, false);
             //JdbcUtil.printResultSet(rs);
 
@@ -250,6 +264,8 @@ public class JdbcMetaDataCollector implements AutoCloseable{
             return new ArrayList<>(indexNameMap.values());
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting indexes for " + tableName, e);
+        } finally {
+            releaseConnection(connection);
         }
     }
 
@@ -266,10 +282,10 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         }
     }
 
-    private List<String> findPrimaryKeys(String tableName, String schema) {
+    private List<String> findPrimaryKeys(String tableName, String schema, DatabaseMetaData databaseMetaData) {
         StopWatch sw = new StopWatch().start();
         try {
-            ResultSet rs = getDatabaseMetaData().getPrimaryKeys(null, schema, tableName.toUpperCase());
+            ResultSet rs = databaseMetaData.getPrimaryKeys(null, schema, tableName.toUpperCase());
             List<String> fks = new ArrayList<>();
 
             while (rs.next()) {
@@ -283,7 +299,7 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         }
     }
 
-    private Map<String, ForeignKeyMetaData> findForeignKeys(String tableName, String schema) {
+    private Map<String, ForeignKeyMetaData> findForeignKeys(String tableName, String schema, DatabaseMetaData databaseMetaData) {
         StopWatch sw = new StopWatch().start();
         try {
             ResultSet rs = databaseMetaData.getImportedKeys(null, schema, tableName.toUpperCase());
@@ -314,13 +330,34 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         }
     }
 
+    private Map<String, ForeignKeyMetaData> findForeignKeys(String tableName, String schema, Connection connection) {
+        try {
+            return findForeignKeys(tableName, schema, connection.getMetaData());
+        } catch (SQLException e) {
+            throw new JdbcMetaDataException("Error getting foreign keys for " + tableName, e);
+        }
+    }
+
     private boolean schemaExists(String schema) {
+        if (allSchemaNames != null && allSchemaNames.contains(schema)) {
+            return true;
+        }
+        Connection connection = getConnection();
+        try {
+            return schemaExists(schema, connection.getMetaData());
+        } catch (SQLException e) {
+            throw new JdbcMetaDataException("Error checking the existence of schema " + schema, e);
+        } finally {
+            releaseConnection(connection);
+        }
+    }
+
+    private boolean schemaExists(String schema, DatabaseMetaData databaseMetaData) {
         if (allSchemaNames != null && allSchemaNames.contains(schema)) {
             return true;
         }
         StopWatch sw = new StopWatch().start();
         try {
-            DatabaseMetaData databaseMetaData = getDatabaseMetaData();
             schema = schema.toUpperCase();
             ResultSet rs = databaseMetaData.getSchemas(null, schema);
 
@@ -359,8 +396,9 @@ public class JdbcMetaDataCollector implements AutoCloseable{
             return new ArrayList<>(names);
         }
 
+        Connection connection = getConnection();
         try {
-            DatabaseMetaData databaseMetaData = getDatabaseMetaData();
+            DatabaseMetaData databaseMetaData = connection.getMetaData();
             ResultSet rs = databaseMetaData.getTables(null, schema, "%", new String[]{"TABLE"});
             List<String> tables = new ArrayList<>();
             while (rs.next()) {
@@ -371,13 +409,14 @@ public class JdbcMetaDataCollector implements AutoCloseable{
             return tables;
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting table names for schema " + schema, e);
+        } finally {
+            releaseConnection(connection);
         }
     }
 
     private DatabaseMetaData getDatabaseMetaData() {
         try {
-            databaseMetaData = ofNullable(databaseMetaData).orElse(getConnection().getMetaData());
-            return databaseMetaData;
+            return getConnection().getMetaData();
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error getting DB metadata", e);
         }
@@ -399,7 +438,7 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         }
     }
 
-    private List<String> findAllSchemaNames() {
+    private List<String> findAllSchemaNames(DatabaseMetaData databaseMetaData) {
         StopWatch sw = new StopWatch().start();
 
         if (allSchemaNames != null && !allSchemaNames.isEmpty()) {
@@ -407,7 +446,7 @@ public class JdbcMetaDataCollector implements AutoCloseable{
             return new ArrayList<>(allSchemaNames);
         }
         try {
-            ResultSet rs = getDatabaseMetaData().getSchemas();
+            ResultSet rs = databaseMetaData.getSchemas();
             //JdbcUtil.printResultSet(rs);
 
             List<String> schemaNames = new ArrayList<>();
@@ -425,6 +464,35 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         }
     }
 
+    private List<String> findAllSchemaNames() {
+        StopWatch sw = new StopWatch().start();
+
+        if (allSchemaNames != null && !allSchemaNames.isEmpty()) {
+            debug("All schemas names found in cache %dms", sw.stop().getTotalTimeMillis());
+            return new ArrayList<>(allSchemaNames);
+        }
+        Connection connection = getConnection();
+        try {
+            ResultSet rs = connection.getMetaData().getSchemas();
+            //JdbcUtil.printResultSet(rs);
+
+            List<String> schemaNames = new ArrayList<>();
+            while (rs.next()) {
+                schemaNames.add(rs.getString(1));
+            }
+
+            allSchemaNames = new HashSet<>(allSchemaNames);
+            allSchemaNames.addAll(schemaNames);
+
+            debug("All schemas names found in %dms", sw.stop().getTotalTimeMillis());
+            return schemaNames;
+        } catch (SQLException e) {
+            throw new JdbcMetaDataException("Error getting all schema names", e);
+        } finally {
+            releaseConnection(connection);
+        }
+    }
+
     private Connection getConnection() {
         if (dataSource != null) {
             try {
@@ -439,19 +507,26 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         }
     }
 
-    private JdbcDatabaseMetaData populateExtraDatabaseData(JdbcDatabaseMetaData jdbcDatabaseMetaData) {
+    private JdbcDatabaseMetaData populateExtraDatabaseData(JdbcDatabaseMetaData jdbcDatabaseMetaData, DatabaseMetaData md) {
         try {
-            DatabaseMetaData md = getDatabaseMetaData();
             return jdbcDatabaseMetaData
-                    .setDatabaseProductName(md.getDatabaseProductName())
-                    ;
+                    .setDatabaseProductName(md.getDatabaseProductName());
         } catch (SQLException e) {
             throw new JdbcMetaDataException("Error populating extra database data", e);
         }
     }
 
     private String columnName(String name) throws SQLException {
-        int maxColumnNameLength = getDatabaseMetaData().getMaxColumnNameLength();
+        if (maxColumnNameLength == -1) {
+            Connection connection = getConnection();
+
+            try {
+                maxColumnNameLength = connection.getMetaData().getMaxColumnNameLength();
+            } finally {
+                releaseConnection(connection);
+            }
+        }
+
         if (maxColumnNameLength < name.length() && maxColumnNameLength > 0) {
             return name.substring(0, maxColumnNameLength);
         } else {
@@ -526,6 +601,16 @@ public class JdbcMetaDataCollector implements AutoCloseable{
         return this;
     }
 
+    private void releaseConnection(Connection connection) {
+        if (dataSource != null && connection != null) {
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                throw new JdbcMetaDataException(e);
+            }
+        }
+    }
+
     private Object[] array(Object... args) {
         return args;
     }
@@ -568,7 +653,7 @@ public class JdbcMetaDataCollector implements AutoCloseable{
 
     @Override
     public void close() {
-        if(pool == null) {
+        if (pool == null) {
             internalPool.shutdownNow();
         }
     }
