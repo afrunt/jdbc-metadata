@@ -19,9 +19,13 @@
 package com.afrunt.jdbcmetadata;
 
 
+import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.logging.Level;
@@ -33,7 +37,7 @@ import static java.util.Optional.ofNullable;
 /**
  * @author Andrii Frunt
  */
-public class JdbcMetaDataCollector {
+public class JdbcMetaDataCollector implements AutoCloseable{
     private static final Logger LOG = Logger.getLogger(JdbcMetaDataCollector.class.getName());
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
@@ -47,6 +51,12 @@ public class JdbcMetaDataCollector {
     private DatabaseStrategy databaseStrategy;
     private ProgressMonitor progressMonitor;
     private boolean quoteTableNames;
+
+    private DataSource dataSource;
+    private int parallelism = 1;
+
+    private ExecutorService internalPool;
+    private ExecutorService pool;
 
     public JdbcDatabaseMetaData collectDatabaseMetaData() {
         return collectDatabaseMetaData(s -> true);
@@ -64,11 +74,17 @@ public class JdbcMetaDataCollector {
             progressMonitor.collectionStarted(filteredSchemas);
         }
 
-        List<SchemaMetaData> schemas = allSchemaNames.stream()
-                .filter(schemaFilter)
-                .parallel()
-                .map(this::collectSchemaMetaData)
-                .collect(Collectors.toList());
+        List<SchemaMetaData> schemas;
+
+        try {
+            schemas = getInternalPool().submit(() -> allSchemaNames.parallelStream()
+                    .filter(schemaFilter)
+                    .map(this::collectSchemaMetaData)
+                    .collect(Collectors.toList())
+            ).get();
+        } catch (Exception e) {
+            throw new JdbcMetaDataException(e);
+        }
 
 
         JdbcDatabaseMetaData jdbcDatabaseMetaData = populateExtraDatabaseData(databaseMetaData)
@@ -324,11 +340,14 @@ public class JdbcMetaDataCollector {
     }
 
     private List<TableMetaData> collectTablesMetaDataForSchema(String schema) {
-        return findTableNamesForSchema(schema).stream()
-                .filter(tn -> !skipTables.apply(schema, tn))
-                .parallel()
-                .map(tn -> collectTableMetaData(tn, schema))
-                .collect(Collectors.toList());
+        try {
+            return getInternalPool().submit(() -> findTableNamesForSchema(schema).parallelStream()
+                    .filter(tn -> !skipTables.apply(schema, tn))
+                    .map(tn -> collectTableMetaData(tn, schema))
+                    .collect(Collectors.toList())).get();
+        } catch (Exception e) {
+            throw new JdbcMetaDataException(e);
+        }
     }
 
     private List<String> findTableNamesForSchema(String schema) {
@@ -366,8 +385,14 @@ public class JdbcMetaDataCollector {
 
     public List<SequenceMetaData> collectSequencesMetaData(String schemaName) {
         if (!skipSequences && databaseStrategy != null) {
+
+            if (dataSource != null) {
+                databaseStrategy.setDataSource(dataSource);
+            } else {
+                databaseStrategy.setConnection(getConnection());
+            }
+
             return databaseStrategy
-                    .setConnection(connection)
                     .collectSequencesMetaData(schemaName);
         } else {
             return Collections.emptyList();
@@ -401,7 +426,17 @@ public class JdbcMetaDataCollector {
     }
 
     private Connection getConnection() {
-        return connection;
+        if (dataSource != null) {
+            try {
+                return dataSource.getConnection();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        } else if (connection != null) {
+            return connection;
+        } else {
+            throw new IllegalStateException("SQL data source or connection should be provided");
+        }
     }
 
     private JdbcDatabaseMetaData populateExtraDatabaseData(JdbcDatabaseMetaData jdbcDatabaseMetaData) {
@@ -464,8 +499,59 @@ public class JdbcMetaDataCollector {
         return this;
     }
 
+    public DataSource getDataSource() {
+        return dataSource;
+    }
+
+    public JdbcMetaDataCollector setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
+        return this;
+    }
+
+    public int getParallelism() {
+        return parallelism;
+    }
+
+    public JdbcMetaDataCollector setParallelism(int parallelism) {
+        this.parallelism = parallelism;
+        return this;
+    }
+
+    public ExecutorService getPool() {
+        return pool;
+    }
+
+    public JdbcMetaDataCollector setPool(ExecutorService pool) {
+        this.pool = pool;
+        return this;
+    }
+
     private Object[] array(Object... args) {
         return args;
+    }
+
+    private ExecutorService getInternalPool() {
+        if (internalPool != null) {
+            return internalPool;
+        }
+
+        if (dataSource == null) {
+            internalPool = Executors.newFixedThreadPool(1);
+            return internalPool;
+        }
+
+        if (pool != null && dataSource != null) {
+            internalPool = pool;
+            return internalPool;
+        }
+
+        if (parallelism > 1 && dataSource != null) {
+            internalPool = new ForkJoinPool(parallelism);
+            return internalPool;
+        }
+
+        internalPool = new ForkJoinPool(1);
+        return internalPool;
     }
 
     private void debug(String message, Object... params) {
@@ -478,5 +564,12 @@ public class JdbcMetaDataCollector {
 
     private void log(Level level, String message, Object... params) {
         LOG.log(level, String.format(message, params));
+    }
+
+    @Override
+    public void close() {
+        if(pool == null) {
+            internalPool.shutdownNow();
+        }
     }
 }

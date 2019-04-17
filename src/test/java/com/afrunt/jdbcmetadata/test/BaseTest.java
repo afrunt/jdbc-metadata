@@ -19,13 +19,14 @@
 package com.afrunt.jdbcmetadata.test;
 
 import com.afrunt.jdbcmetadata.JdbcMetaDataCollector;
+import org.h2.jdbcx.JdbcDataSource;
 import org.h2.tools.RunScript;
 import org.junit.After;
 import org.junit.Before;
 
+import javax.sql.DataSource;
 import java.io.InputStreamReader;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -34,12 +35,18 @@ import java.sql.Statement;
  */
 public class BaseTest {
     private Connection connection;
+    private DataSource dataSource;
+
     private JdbcMetaDataCollector metaDataCollector;
 
     @Before
-    public void init() throws SQLException, ClassNotFoundException {
+    public void init() throws SQLException {
+        dataSource = createDataSource();
         connection = createConnection();
-        metaDataCollector = new JdbcMetaDataCollector().setConnection(connection);
+        metaDataCollector = new JdbcMetaDataCollector()
+                .setDataSource(dataSource)
+                .setParallelism(10)
+        ;
     }
 
     @After
@@ -48,18 +55,23 @@ public class BaseTest {
         stmt.executeUpdate("DROP ALL OBJECTS");
     }
 
-    public Connection createConnection() throws SQLException, ClassNotFoundException {
-        Class.forName("org.h2.Driver");
-        String url = "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false";
-        String user = "sa";
-        String pwds = "filepwd userpwd";
+    public Connection createConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
 
-        Connection connection = DriverManager.getConnection(url, user, pwds);
-
-        RunScript.execute(connection, new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("schema.h2.sql")));
-        RunScript.execute(connection, new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("constraints.h2.sql")));
-        RunScript.execute(connection, new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("data.h2.sql")));
-        return connection;
+    public DataSource createDataSource() {
+        try {
+            JdbcDataSource dataSource = new JdbcDataSource();
+            dataSource.setURL("jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false");
+            dataSource.setUser("sa");
+            Connection connection = dataSource.getConnection();
+            RunScript.execute(connection, new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("schema.h2.sql")));
+            RunScript.execute(connection, new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("constraints.h2.sql")));
+            RunScript.execute(connection, new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("data.h2.sql")));
+            return dataSource;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public JdbcMetaDataCollector getMetaDataCollector() {

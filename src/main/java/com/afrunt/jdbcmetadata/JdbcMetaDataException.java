@@ -33,7 +33,7 @@ public class JdbcMetaDataException extends RuntimeException {
         super(message, cause);
     }
 
-/*    public JdbcMetaDataException(Throwable cause) {
+    public JdbcMetaDataException(Throwable cause) {
         super(cause);
-    }*/
+    }
 }
